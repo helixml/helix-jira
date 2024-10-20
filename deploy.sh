@@ -44,8 +44,6 @@ helix secret delete --name AUTH_STRING || true
 helix secret create --name JIRA_HOSTNAME --value $JIRA_HOSTNAME
 helix secret create --name AUTH_STRING --value $AUTH_STRING
 
-helix apply -f helix.yaml
-
 # Run helix apply with the processed file
 RESP=$(helix apply -f helix.yaml)
 if [ $? -ne 0 ]; then
