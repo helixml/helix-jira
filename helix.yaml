@@ -117,3 +117,11 @@ assistants:
   zapier: []
 
 triggers: []
+
+# TODO: pin down API responses
+tests:
+- name: Test JIRA issue search
+  steps:
+    - prompt: What issues are there?
+      expected_output: A list of 8 issues with their descriptions.
+
