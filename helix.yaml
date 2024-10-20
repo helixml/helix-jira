@@ -38,7 +38,7 @@ assistants:
                 description: The maximum number of items to return per page. The default is 50 and the maximum is 100.
                 schema:
                   type: integer
-                  default: 3
+                  default: 10
               - name: fields
                 in: query
                 description: A list of fields to return for each issue, use it to retrieve a subset of fields. This parameter accepts a comma-separated list.
