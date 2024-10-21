@@ -56,7 +56,6 @@ type TestResult struct {
 	Model          string        `json:"model"`
 	InferenceTime  time.Duration `json:"inference_time"`
 	EvaluationTime time.Duration `json:"evaluation_time"`
-	HelixYaml      string        `json:"helix_yaml"`
 }
 
 type ChatResponse struct {
@@ -275,7 +274,6 @@ func main() {
 					Model:          helixYaml.Assistants[0].Model,
 					InferenceTime:  inferenceTime,
 					EvaluationTime: evaluationTime,
-					HelixYaml:      helixYamlContent,
 				}
 
 				resultsChan <- result
@@ -320,6 +318,14 @@ func main() {
 
 	fmt.Printf("\nTotal execution time: %s\n", totalTime.Round(time.Millisecond))
 
+	overallResult := "PASS"
+	for _, result := range results {
+		if result.Result != "PASS" {
+			overallResult = "FAIL"
+		}
+	}
+	fmt.Printf("Overall result: %s\n", overallResult)
+
 	// Write results to JSON file
 	timestamp := time.Now().Format("20060102150405")
 	filename := fmt.Sprintf("results_%s.json", timestamp)
@@ -328,6 +334,7 @@ func main() {
 	resultMap := make(map[string]interface{})
 	resultMap["tests"] = results
 	resultMap["total_execution_time"] = totalTime.String()
+	resultMap["helix_yaml"] = helixYamlContent
 
 	jsonResults, err := json.MarshalIndent(resultMap, "", "  ")
 	if err != nil {

@@ -322,10 +322,6 @@ func loadResultsData(filename string) (ResultsData, error) {
 		return data, err
 	}
 
-	if len(data.Tests) > 0 {
-		data.HelixYaml = data.Tests[0].HelixYaml
-	}
-
 	data.LatestResultsFile = filename
 	data.AvailableResultFiles = getAvailableResultFiles()
 
