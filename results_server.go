@@ -27,19 +27,98 @@ const htmlTemplate = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Helix Test Results</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
-        .content { flex: 1; overflow-y: auto; padding-bottom: 10px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body, html { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            height: 100%; 
+            overflow: hidden; 
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header { 
+            padding: 10px 20px; 
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .header-info p {
+            margin: 0;
+            font-size: 0.9em;
+        }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .results-container { 
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
         tr.pass { background-color: #e6ffe6; }
         tr.fail { background-color: #ffe6e6; }
-        h1 { color: #333; }
-        #iframe-container { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 70%; border: none; }
-        #iframe-container iframe { width: 100%; height: calc(100% - 10px); border: none; }
-        #close-iframe { position: absolute; top: 10px; right: 10px; cursor: pointer; }
-        #resize-handle { width: 100%; height: 10px; background: #f0f0f0; cursor: ns-resize; border-top: 1px solid #ccc; }
-        #view-helix-yaml { margin-bottom: 10px; }
+        #iframe-container { 
+            display: none; 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 70%; 
+            border: none; 
+        }
+        #iframe-container iframe { 
+            width: 100%; 
+            height: calc(100% - 10px); 
+            border: none; 
+        }
+        #close-iframe { 
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            cursor: pointer; 
+        }
+        #resize-handle { 
+            width: 100%; 
+            height: 10px; 
+            background: #f0f0f0; 
+            cursor: ns-resize; 
+            border-top: 1px solid #ccc; 
+        }
+        #view-helix-yaml { 
+            padding: 5px 10px;
+            font-size: 0.9em;
+        }
         .truncate { 
             max-width: 200px; 
             white-space: nowrap; 
@@ -62,44 +141,54 @@ const htmlTemplate = `
     </style>
 </head>
 <body>
-    <div class="content">
-        <h1>Helix Test Results</h1>
-        <p>Total Execution Time: {{.TotalExecutionTime}}</p>
-        <p>Current Results File: {{.LatestResultsFile}}</p>
-        <form action="/" method="get">
-            <select name="file" onchange="this.form.submit()">
-                {{range .AvailableResultFiles}}
-                    <option value="{{.}}" {{if eq . $.LatestResultsFile}}selected{{end}}>{{.}}</option>
-                {{end}}
-            </select>
-        </form>
-        <button id="view-helix-yaml" onclick="viewHelixYaml()">View helix.yaml</button>
-        <table>
-            <tr>
-                <th>Test Name</th>
-                <th>Result</th>
-                <th>Reason</th>
-                <th>Session ID</th>
-                <th>Model</th>
-                <th>Inference Time</th>
-                <th>Evaluation Time</th>
-                <th>Session Link</th>
-                <th>Debug Link</th>
-            </tr>
-            {{range .Tests}}
-            <tr class="{{if eq .Result "PASS"}}pass{{else}}fail{{end}}">
-                <td>{{.TestName}}</td>
-                <td>{{.Result}}</td>
-                <td class="truncate" data-full-text="{{.Reason}}">{{truncate .Reason 50}}</td>
-                <td>{{.SessionID}}</td>
-                <td>{{.Model}}</td>
-                <td>{{.InferenceTime}}</td>
-                <td>{{.EvaluationTime}}</td>
-                <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/session/{{.SessionID}}'); return false;">Session</a></td>
-                <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions={{.SessionID}}'); return false;">Debug</a></td>
-            </tr>
-            {{end}}
-        </table>
+    <div class="main-container">
+        <div class="header">
+            <h1>Helix Test Results</h1>
+            <div class="header-info">
+                <p>Total Time: {{.TotalExecutionTime}}</p>
+                <p>File: {{.LatestResultsFile}}</p>
+            </div>
+            <div class="header-controls">
+                <form action="/" method="get" style="margin: 0;">
+                    <select name="file" onchange="this.form.submit()" style="padding: 5px;">
+                        {{range .AvailableResultFiles}}
+                            <option value="{{.}}" {{if eq . $.LatestResultsFile}}selected{{end}}>{{.}}</option>
+                        {{end}}
+                    </select>
+                </form>
+                <button id="view-helix-yaml" onclick="viewHelixYaml()">View helix.yaml</button>
+            </div>
+        </div>
+        <div class="results-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Test Name</th>
+                        <th>Result</th>
+                        <th>Reason</th>
+                        <th>Model</th>
+                        <th>Inference Time</th>
+                        <th>Evaluation Time</th>
+                        <th>Session Link</th>
+                        <th>Debug Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Tests}}
+                    <tr class="{{if eq .Result "PASS"}}pass{{else}}fail{{end}}">
+                        <td>{{.TestName}}</td>
+                        <td>{{.Result}}</td>
+                        <td class="truncate" data-full-text="{{.Reason}}">{{truncate .Reason 50}}</td>
+                        <td>{{.Model}}</td>
+                        <td>{{printf "%.2f" .InferenceTime.Seconds}}s</td>
+                        <td>{{printf "%.2f" .EvaluationTime.Seconds}}s</td>
+                        <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/session/{{.SessionID}}'); return false;">Session</a></td>
+                        <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions={{.SessionID}}'); return false;">Debug</a></td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
     </div>
     <div id="iframe-container">
         <div id="resize-handle"></div>
@@ -111,10 +200,22 @@ const htmlTemplate = `
         function openDashboard(url) {
             document.getElementById('dashboard-iframe').src = url;
             document.getElementById('iframe-container').style.display = 'block';
+            adjustContentHeight();
         }
         function closeDashboard() {
             document.getElementById('iframe-container').style.display = 'none';
             document.getElementById('dashboard-iframe').src = '';
+            adjustContentHeight();
+        }
+
+        function adjustContentHeight() {
+            const mainContainer = document.querySelector('.main-container');
+            const iframeContainer = document.getElementById('iframe-container');
+            if (iframeContainer.style.display === 'block') {
+                mainContainer.style.height = 'calc(100vh - ' + iframeContainer.offsetHeight + 'px)';
+            } else {
+                mainContainer.style.height = '100vh';
+            }
         }
 
         // Resizing functionality
@@ -132,6 +233,7 @@ const htmlTemplate = `
             if (!isResizing) return;
             const newHeight = window.innerHeight - e.clientY;
             iframeContainer.style.height = newHeight + 'px';
+            adjustContentHeight();
         }
 
         function stopResize() {
@@ -159,6 +261,9 @@ const htmlTemplate = `
                 tooltip.style.display = 'none';
             });
         });
+
+        // Initial adjustment
+        adjustContentHeight();
     </script>
 </body>
 </html>
