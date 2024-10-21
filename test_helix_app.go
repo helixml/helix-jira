@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -42,13 +41,15 @@ type Content struct {
 }
 
 type TestResult struct {
-	TestName  string `json:"test_name"`
-	Prompt    string `json:"prompt"`
-	Response  string `json:"response"`
-	Expected  string `json:"expected"`
-	Result    string `json:"result"`
-	Reason    string `json:"reason"`
-	SessionID string `json:"session_id"`
+	TestName       string        `json:"test_name"`
+	Prompt         string        `json:"prompt"`
+	Response       string        `json:"response"`
+	Expected       string        `json:"expected"`
+	Result         string        `json:"result"`
+	Reason         string        `json:"reason"`
+	SessionID      string        `json:"session_id"`
+	InferenceTime  time.Duration `json:"inference_time"`
+	EvaluationTime time.Duration `json:"evaluation_time"`
 }
 
 type ChatResponse struct {
@@ -61,8 +62,13 @@ type ChatResponse struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "serve" {
+		RunResultsServer()
+		return
+	}
+
 	// Read helix.yaml
-	yamlFile, err := ioutil.ReadFile("helix.yaml")
+	yamlFile, err := os.ReadFile("helix.yaml")
 	if err != nil {
 		fmt.Printf("Error reading helix.yaml: %v\n", err)
 		return
@@ -90,6 +96,7 @@ func main() {
 	}
 
 	var results []TestResult
+	totalStartTime := time.Now()
 
 	// Get HELIX_URL from environment variable
 	helixURL := os.Getenv("HELIX_URL")
@@ -101,6 +108,8 @@ func main() {
 	// Iterate over tests
 	for _, test := range helixYaml.Tests {
 		for _, step := range test.Steps {
+			inferenceStartTime := time.Now()
+
 			// Send test API request
 			chatReq := ChatRequest{
 				Messages: []Message{
@@ -148,7 +157,7 @@ func main() {
 			var chatResp ChatResponse
 			err = json.Unmarshal(body, &chatResp)
 			if err != nil {
-				fmt.Printf("Error parsing response JSON: %v\n", err)
+				fmt.Printf("Error parsing response JSON: %v (%s)\n", err, string(body))
 				continue
 			}
 
@@ -159,6 +168,12 @@ func main() {
 
 			responseContent := chatResp.Choices[0].Message.Content
 			fmt.Printf("Chat response content: %s\n", responseContent)
+			fmt.Printf("Link to session: %s\n", helixURL+"/session/"+chatResp.ID)
+			fmt.Printf("Link to debug LLM calls: %s\n", helixURL+"/dashboard?tab=llm_calls&filter_sessions="+chatResp.ID)
+
+			inferenceTime := time.Since(inferenceStartTime)
+
+			evaluationStartTime := time.Now()
 
 			// Evaluate response using another LLM call
 			evalReq := ChatRequest{
@@ -207,7 +222,7 @@ func main() {
 			var evalResp ChatResponse
 			err = json.Unmarshal(evalBody, &evalResp)
 			if err != nil {
-				fmt.Printf("Error parsing evaluation response JSON: %v\n", err)
+				fmt.Printf("Error parsing evaluation response JSON: %v (%s)\n", err, string(evalBody))
 				continue
 			}
 
@@ -219,34 +234,54 @@ func main() {
 			evalContent := evalResp.Choices[0].Message.Content
 			fmt.Printf("Evaluation response content: %s\n", evalContent)
 
+			evaluationTime := time.Since(evaluationStartTime)
+
 			result := TestResult{
-				TestName:  test.Name,
-				Prompt:    step.Prompt,
-				Response:  responseContent,
-				Expected:  step.ExpectedOutput,
-				Result:    evalContent[:4], // Assuming PASS or FAIL
-				Reason:    evalContent[5:], // Explanation after PASS or FAIL
-				SessionID: chatResp.ID,     // Use the ID field for SessionID
+				TestName:       test.Name,
+				Prompt:         step.Prompt,
+				Response:       responseContent,
+				Expected:       step.ExpectedOutput,
+				Result:         evalContent[:4], // Assuming PASS or FAIL
+				Reason:         evalContent[5:], // Explanation after PASS or FAIL
+				SessionID:      chatResp.ID,     // Use the ID field for SessionID
+				InferenceTime:  inferenceTime,
+				EvaluationTime: evaluationTime,
 			}
 
 			results = append(results, result)
 		}
 	}
 
-	// Display results in a table with link
+	totalTime := time.Since(totalStartTime)
+
+	// Display results in a table with link and timing information
 	fmt.Println("Test Results:")
 	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
-	fmt.Printf("%-20s | %-10s | %-10s | %s\n", "Test Name", "Result", "Session ID", "Link")
+	fmt.Printf("%-20s | %-10s | %-10s | %-15s | %-15s | %s\n", "Test Name", "Result", "Session ID", "Inference Time", "Evaluation Time", "Link")
 	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
 	for _, result := range results {
 		link := fmt.Sprintf("https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions=%s", result.SessionID)
-		fmt.Printf("%-20s | %-10s | %-10s | %s\n", result.TestName, result.Result, result.SessionID, link)
+		fmt.Printf("%-20s | %-10s | %-10s | %-15s | %-15s | %s\n",
+			result.TestName,
+			result.Result,
+			result.SessionID,
+			result.InferenceTime.Round(time.Millisecond),
+			result.EvaluationTime.Round(time.Millisecond),
+			link)
 	}
+
+	fmt.Printf("\nTotal execution time: %s\n", totalTime.Round(time.Millisecond))
 
 	// Write results to JSON file
 	timestamp := time.Now().Format("20060102150405")
 	filename := fmt.Sprintf("results_%s.json", timestamp)
-	jsonResults, err := json.MarshalIndent(results, "", "  ")
+
+	// Create a map to hold all results, including the total execution time
+	resultMap := make(map[string]interface{})
+	resultMap["tests"] = results
+	resultMap["total_execution_time"] = totalTime.String()
+
+	jsonResults, err := json.MarshalIndent(resultMap, "", "  ")
 	if err != nil {
 		fmt.Printf("Error marshaling results to JSON: %v\n", err)
 		return
