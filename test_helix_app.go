@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -113,154 +115,189 @@ func main() {
 		return
 	}
 
+	// Create a channel to receive results
+	resultsChan := make(chan TestResult)
+
+	// Create a WaitGroup to wait for all tests to complete
+	var wg sync.WaitGroup
+
+	// Create a semaphore channel to limit concurrent tests
+	semaphore := make(chan struct{}, 10)
+
 	// Iterate over tests
 	for _, test := range helixYaml.Tests {
 		for _, step := range test.Steps {
-			inferenceStartTime := time.Now()
+			wg.Add(1)
+			go func(test string, step struct {
+				Prompt         string `yaml:"prompt"`
+				ExpectedOutput string `yaml:"expected_output"`
+			}) {
+				defer wg.Done()
+				semaphore <- struct{}{}        // Acquire semaphore
+				defer func() { <-semaphore }() // Release semaphore
 
-			// Send test API request
-			chatReq := ChatRequest{
-				Messages: []Message{
-					{
-						Role: "user",
-						Content: Content{
-							ContentType: "text",
-							Parts:       []string{step.Prompt},
+				inferenceStartTime := time.Now()
+
+				// Send test API request
+				chatReq := ChatRequest{
+					Messages: []Message{
+						{
+							Role: "user",
+							Content: Content{
+								ContentType: "text",
+								Parts:       []string{step.Prompt},
+							},
 						},
 					},
-				},
-				AppID: appID,
-			}
+					AppID: appID,
+				}
 
-			jsonData, err := json.Marshal(chatReq)
-			if err != nil {
-				fmt.Printf("Error marshaling JSON: %v\n", err)
-				continue
-			}
+				jsonData, err := json.Marshal(chatReq)
+				if err != nil {
+					fmt.Printf("Error marshaling JSON: %v\n", err)
+					return
+				}
 
-			req, err := http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
-			if err != nil {
-				fmt.Printf("Error creating request: %v\n", err)
-				continue
-			}
+				req, err := http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
+				if err != nil {
+					fmt.Printf("Error creating request: %v\n", err)
+					return
+				}
 
-			req.Header.Set("Authorization", "Bearer "+apiKey)
-			req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Authorization", "Bearer "+apiKey)
+				req.Header.Set("Content-Type", "application/json")
 
-			client := &http.Client{}
-			resp, err := client.Do(req)
-			if err != nil {
-				fmt.Printf("Error sending request: %v\n", err)
-				continue
-			}
-			defer resp.Body.Close()
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					fmt.Printf("Error sending request: %v\n", err)
+					return
+				}
+				defer resp.Body.Close()
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Printf("Error reading response: %v\n", err)
-				continue
-			}
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("Error reading response: %v\n", err)
+					return
+				}
 
-			// Parse the response
-			var chatResp ChatResponse
-			err = json.Unmarshal(body, &chatResp)
-			if err != nil {
-				fmt.Printf("Error parsing response JSON: %v (%s)\n", err, string(body))
-				continue
-			}
+				// Parse the response
+				var chatResp ChatResponse
+				err = json.Unmarshal(body, &chatResp)
+				if err != nil {
+					fmt.Printf("Error parsing response JSON: %v (%s)\n", err, string(body))
+					return
+				}
 
-			if len(chatResp.Choices) == 0 {
-				fmt.Println("Error: No choices in the response")
-				continue
-			}
+				if len(chatResp.Choices) == 0 {
+					fmt.Println("Error: No choices in the response")
+					return
+				}
 
-			responseContent := chatResp.Choices[0].Message.Content
-			fmt.Printf("Chat response content: %s\n", responseContent)
-			fmt.Printf("Link to session: %s\n", helixURL+"/session/"+chatResp.ID)
-			fmt.Printf("Link to debug LLM calls: %s\n", helixURL+"/dashboard?tab=llm_calls&filter_sessions="+chatResp.ID)
+				responseContent := chatResp.Choices[0].Message.Content
+				fmt.Printf("Chat response content: %s\n", responseContent)
+				fmt.Printf("Link to session: %s\n", helixURL+"/session/"+chatResp.ID)
+				fmt.Printf("Link to debug LLM calls: %s\n", helixURL+"/dashboard?tab=llm_calls&filter_sessions="+chatResp.ID)
 
-			inferenceTime := time.Since(inferenceStartTime)
+				inferenceTime := time.Since(inferenceStartTime)
 
-			evaluationStartTime := time.Now()
+				evaluationStartTime := time.Now()
 
-			// Evaluate response using another LLM call
-			evalReq := ChatRequest{
-				Model:  "llama3.1:8b-instruct-q8_0",
-				System: "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation on the next line. Don't be too strict, just ensure the basics are correct.",
-				Messages: []Message{
-					{
-						Role: "user",
-						Content: Content{
-							ContentType: "text",
-							Parts:       []string{fmt.Sprintf("Does this response:\n\n%s\n\nsatisfy the expected output:\n\n%s", responseContent, step.ExpectedOutput)},
+				// Evaluate response using another LLM call
+				evalReq := ChatRequest{
+					Model:  "llama3.1:8b-instruct-q8_0",
+					System: "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation on the next line. Don't be too strict, just ensure the basics are correct.",
+					Messages: []Message{
+						{
+							Role: "user",
+							Content: Content{
+								ContentType: "text",
+								Parts:       []string{fmt.Sprintf("Does this response:\n\n%s\n\nsatisfy the expected output:\n\n%s", responseContent, step.ExpectedOutput)},
+							},
 						},
 					},
-				},
-			}
+				}
 
-			jsonData, err = json.Marshal(evalReq)
-			if err != nil {
-				fmt.Printf("Error marshaling JSON for evaluation: %v\n", err)
-				continue
-			}
+				jsonData, err = json.Marshal(evalReq)
+				if err != nil {
+					fmt.Printf("Error marshaling JSON for evaluation: %v\n", err)
+					return
+				}
 
-			req, err = http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
-			if err != nil {
-				fmt.Printf("Error creating evaluation request: %v\n", err)
-				continue
-			}
+				req, err = http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
+				if err != nil {
+					fmt.Printf("Error creating evaluation request: %v\n", err)
+					return
+				}
 
-			req.Header.Set("Authorization", "Bearer "+apiKey)
-			req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Authorization", "Bearer "+apiKey)
+				req.Header.Set("Content-Type", "application/json")
 
-			resp, err = client.Do(req)
-			if err != nil {
-				fmt.Printf("Error sending evaluation request: %v\n", err)
-				continue
-			}
-			defer resp.Body.Close()
+				resp, err = client.Do(req)
+				if err != nil {
+					fmt.Printf("Error sending evaluation request: %v\n", err)
+					return
+				}
+				defer resp.Body.Close()
 
-			evalBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Printf("Error reading evaluation response: %v\n", err)
-				continue
-			}
+				evalBody, err := io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("Error reading evaluation response: %v\n", err)
+					return
+				}
 
-			// Parse the evaluation response
-			var evalResp ChatResponse
-			err = json.Unmarshal(evalBody, &evalResp)
-			if err != nil {
-				fmt.Printf("Error parsing evaluation response JSON: %v (%s)\n", err, string(evalBody))
-				continue
-			}
+				// Parse the evaluation response
+				var evalResp ChatResponse
+				err = json.Unmarshal(evalBody, &evalResp)
+				if err != nil {
+					fmt.Printf("Error parsing evaluation response JSON: %v (%s)\n", err, string(evalBody))
+					return
+				}
 
-			if len(evalResp.Choices) == 0 {
-				fmt.Println("Error: No choices in the evaluation response")
-				continue
-			}
+				if len(evalResp.Choices) == 0 {
+					fmt.Println("Error: No choices in the evaluation response")
+					return
+				}
 
-			evalContent := evalResp.Choices[0].Message.Content
-			fmt.Printf("Evaluation response content: %s\n", evalContent)
+				evalContent := evalResp.Choices[0].Message.Content
+				fmt.Printf("Evaluation response content: %s\n", evalContent)
 
-			evaluationTime := time.Since(evaluationStartTime)
+				evaluationTime := time.Since(evaluationStartTime)
 
-			result := TestResult{
-				TestName:       test.Name,
-				Prompt:         step.Prompt,
-				Response:       responseContent,
-				Expected:       step.ExpectedOutput,
-				Result:         evalContent[:4],
-				Reason:         evalContent[5:],
-				SessionID:      chatResp.ID,
-				Model:          helixYaml.Assistants[0].Model,
-				InferenceTime:  inferenceTime,
-				EvaluationTime: evaluationTime,
-				HelixYaml:      helixYamlContent,
-			}
+				result := TestResult{
+					TestName:       test,
+					Prompt:         step.Prompt,
+					Response:       responseContent,
+					Expected:       step.ExpectedOutput,
+					Result:         evalContent[:4],
+					Reason:         evalContent[5:],
+					SessionID:      chatResp.ID,
+					Model:          helixYaml.Assistants[0].Model,
+					InferenceTime:  inferenceTime,
+					EvaluationTime: evaluationTime,
+					HelixYaml:      helixYamlContent,
+				}
 
-			results = append(results, result)
+				resultsChan <- result
+			}(test.Name, step)
 		}
 	}
+
+	// Close the results channel when all tests are done
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	// Collect results from the channel
+	for result := range resultsChan {
+		results = append(results, result)
+	}
+
+	// Sort the results by test name
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].TestName < results[j].TestName
+	})
 
 	totalTime := time.Since(totalStartTime)
 
