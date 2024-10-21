@@ -153,6 +153,7 @@ assistants:
       - "get all issues assigned to me" -> "assignee = currentUser()"
       - "show tickets assigned to Phil Winder" -> "assignee = 'Phil Winder'"
       - "write code for issue DS-9" -> "key = DS-9"
+      - "show me overdue issues" -> "duedate < startOfDay()"
 
 
     response_success_template: |
@@ -211,4 +212,8 @@ tests:
   steps:
     - prompt: write some code for issue DS-9
       expected_output: A code snippet that fixes or implements the tic-tac-toe game.
+- name: Overdue issues
+  steps:
+    - prompt: show me overdue issues
+      expected_output: A list of issues that are overdue. There should be exactly one.
 
