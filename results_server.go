@@ -34,7 +34,7 @@ const htmlTemplate = `
         th { background-color: #f2f2f2; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         h1 { color: #333; }
-        #iframe-container { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 50%; border: none; }
+        #iframe-container { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 70%; border: none; }
         #iframe-container iframe { width: 100%; height: calc(100% - 10px); border: none; }
         #close-iframe { position: absolute; top: 10px; right: 10px; cursor: pointer; }
         #resize-handle { width: 100%; height: 10px; background: #f0f0f0; cursor: ns-resize; border-top: 1px solid #ccc; }

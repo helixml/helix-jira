@@ -148,6 +148,12 @@ assistants:
       Based on conversation so far, construct a valid JSON object. In cases where user input does not contain information for a query, DO NOT add that specific query parameter to the output. If a user doesn't provide a required parameter, use sensible defaults for required params, and leave optional params out.
       ONLY use search parameters from the user messages above - do NOT use search parameters provided in the examples.
 
+      Examples of how to specify jql:
+      - "what issues are there" -> ""
+      - "get all issues assigned to me" -> "assignee = currentUser()"
+      - "show tickets assigned to Phil Winder" -> "assignee = 'Phil Winder'"
+
+
     response_success_template: |
       Present the key information in a concise manner.
       Include relevant details, references, and links if present. Format the summary in Markdown for clarity and readability where appropriate, but don't mention formatting in your response unless it's relevant to the user's query.
