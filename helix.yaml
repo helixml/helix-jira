@@ -98,15 +98,15 @@ assistants:
     request_prep_template: ""
     response_success_template: ""
     response_error_template: ""
-    model: ""
 
   # Other assistant properties
+  #model: mixtral:instruct
+  model: qwen2.5:7b-instruct-q8_0
   name: ""
   description: ""
   avatar: ""
   image: ""
   provider: ""
-  model: mixtral:instruct
   type: text
   system_prompt: ""
   rag_source_id: ""
