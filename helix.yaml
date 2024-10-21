@@ -160,6 +160,8 @@ assistants:
       Include relevant details, references, and links if present. Format the summary in Markdown for clarity and readability where appropriate, but don't mention formatting in your response unless it's relevant to the user's query.
       Make sure to NEVER mention technical terms like "APIs, JSON, Request, etc..." and use first person pronoun (say it as if you performed the action)
 
+      Issues and tasks mean the same thing.
+
     response_error_template: |
       As an AI chat assistant, your job is to help the user understand and resolve API error messages.
       When offering solutions, You will clarify without going into unnecessary detail. You must respond in less than 100 words.
