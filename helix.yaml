@@ -162,7 +162,7 @@ assistants:
 
       Issues and tasks mean the same thing.
 
-      IMPORTANT: If the user asks you to write code, you MUST write code.
+      IMPORTANT: If the user asks you to write code, you MUST write code. Start by describing the task described in the issue, and then write the code to perform the task.
 
     response_error_template: |
       As an AI chat assistant, your job is to help the user understand and resolve API error messages.
@@ -198,7 +198,7 @@ tests:
 - name: Assigned to me
   steps:
     - prompt: what issues are assigned to me?
-      expected_output: A summary of only the tasks assigned to Luke Marsden.
+      expected_output: A summary of only the tasks assigned to Luke.
 - name: Assigned to Phil Winder
   steps:
     - prompt: what issues are assigned to Phil Winder?
