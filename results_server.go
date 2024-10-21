@@ -25,45 +25,91 @@ const htmlTemplate = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Helix Test Results</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
+        .content { flex: 1; overflow-y: auto; padding-bottom: 10px; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         h1 { color: #333; }
+        #iframe-container { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 50%; border: none; }
+        #iframe-container iframe { width: 100%; height: calc(100% - 10px); border: none; }
+        #close-iframe { position: absolute; top: 10px; right: 10px; cursor: pointer; }
+        #resize-handle { width: 100%; height: 10px; background: #f0f0f0; cursor: ns-resize; border-top: 1px solid #ccc; }
     </style>
 </head>
 <body>
-    <h1>Helix Test Results</h1>
-    <p>Total Execution Time: {{.TotalExecutionTime}}</p>
-    <p>Current Results File: {{.LatestResultsFile}}</p>
-    <form action="/" method="get">
-        <select name="file" onchange="this.form.submit()">
-            {{range .AvailableResultFiles}}
-                <option value="{{.}}" {{if eq . $.LatestResultsFile}}selected{{end}}>{{.}}</option>
+    <div class="content">
+        <h1>Helix Test Results</h1>
+        <p>Total Execution Time: {{.TotalExecutionTime}}</p>
+        <p>Current Results File: {{.LatestResultsFile}}</p>
+        <form action="/" method="get">
+            <select name="file" onchange="this.form.submit()">
+                {{range .AvailableResultFiles}}
+                    <option value="{{.}}" {{if eq . $.LatestResultsFile}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+        </form>
+        <table>
+            <tr>
+                <th>Test Name</th>
+                <th>Result</th>
+                <th>Session ID</th>
+                <th>Inference Time</th>
+                <th>Evaluation Time</th>
+                <th>Session Link</th>
+                <th>Debug Link</th>
+            </tr>
+            {{range .Tests}}
+            <tr>
+                <td>{{.TestName}}</td>
+                <td>{{.Result}}</td>
+                <td>{{.SessionID}}</td>
+                <td>{{.InferenceTime}}</td>
+                <td>{{.EvaluationTime}}</td>
+                <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/session/{{.SessionID}}'); return false;">Session</a></td>
+                <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions={{.SessionID}}'); return false;">Debug</a></td>
+            </tr>
             {{end}}
-        </select>
-    </form>
-    <table>
-        <tr>
-            <th>Test Name</th>
-            <th>Result</th>
-            <th>Session ID</th>
-            <th>Inference Time</th>
-            <th>Evaluation Time</th>
-            <th>Link</th>
-        </tr>
-        {{range .Tests}}
-        <tr>
-            <td>{{.TestName}}</td>
-            <td>{{.Result}}</td>
-            <td>{{.SessionID}}</td>
-            <td>{{.InferenceTime}}</td>
-            <td>{{.EvaluationTime}}</td>
-            <td><a href="https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions={{.SessionID}}" target="_blank">View</a></td>
-        </tr>
-        {{end}}
-    </table>
+        </table>
+    </div>
+    <div id="iframe-container">
+        <div id="resize-handle"></div>
+        <div id="close-iframe" onclick="closeDashboard()">Close</div>
+        <iframe id="dashboard-iframe" src=""></iframe>
+    </div>
+    <script>
+        function openDashboard(url) {
+            document.getElementById('dashboard-iframe').src = url;
+            document.getElementById('iframe-container').style.display = 'block';
+        }
+        function closeDashboard() {
+            document.getElementById('iframe-container').style.display = 'none';
+            document.getElementById('dashboard-iframe').src = '';
+        }
+
+        // Resizing functionality
+        const resizeHandle = document.getElementById('resize-handle');
+        const iframeContainer = document.getElementById('iframe-container');
+        let isResizing = false;
+
+        resizeHandle.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', stopResize);
+        });
+
+        function resize(e) {
+            if (!isResizing) return;
+            const newHeight = window.innerHeight - e.clientY;
+            iframeContainer.style.height = newHeight + 'px';
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', resize);
+        }
+    </script>
 </body>
 </html>
 `
