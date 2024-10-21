@@ -120,7 +120,7 @@ const htmlTemplate = `
             font-size: 0.9em;
         }
         .truncate { 
-            max-width: 200px; 
+            max-width: 400px; 
             white-space: nowrap; 
             overflow: hidden; 
             text-overflow: ellipsis; 
@@ -178,7 +178,7 @@ const htmlTemplate = `
                     <tr class="{{if eq .Result "PASS"}}pass{{else}}fail{{end}}">
                         <td>{{.TestName}}</td>
                         <td>{{.Result}}</td>
-                        <td class="truncate" data-full-text="{{.Reason}}">{{truncate .Reason 50}}</td>
+                        <td class="truncate" data-full-text="{{.Reason}}">{{truncate .Reason 100}}</td>
                         <td>{{.Model}}</td>
                         <td>{{printf "%.2f" .InferenceTime.Seconds}}s</td>
                         <td>{{printf "%.2f" .EvaluationTime.Seconds}}s</td>
