@@ -300,18 +300,20 @@ func main() {
 	totalTime := time.Since(totalStartTime)
 
 	// Display results in a table with link and timing information
-	fmt.Println("| Test Name | Result | Session ID | Model | Inference Time | Evaluation Time | Link |")
-	fmt.Println("|-----------|--------|------------|-------|----------------|-----------------|------|")
+	fmt.Println("| Test Name | Result | Reason | Model | Inference Time | Evaluation Time | Session Link | Debug Link |")
+	fmt.Println("|-----------|--------|--------|-------|----------------|-----------------|--------------|------------|")
 	for _, result := range results {
-		link := fmt.Sprintf("https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions=%s", result.SessionID)
-		fmt.Printf("| %-20s | %-6s | %-10s | %-25s | %-15s | %-15s | [Link](%s) |\n",
+		sessionLink := fmt.Sprintf("%s/session/%s", helixURL, result.SessionID)
+		debugLink := fmt.Sprintf("%s/dashboard?tab=llm_calls&filter_sessions=%s", helixURL, result.SessionID)
+		fmt.Printf("| %-20s | %-6s | %-50s | %-25s | %-15s | %-15s | [Session](%s) | [Debug](%s) |\n",
 			result.TestName,
 			result.Result,
-			result.SessionID,
+			result.Reason,
 			result.Model,
 			result.InferenceTime.Round(time.Millisecond),
 			result.EvaluationTime.Round(time.Millisecond),
-			link)
+			sessionLink,
+			debugLink)
 	}
 
 	fmt.Printf("\nTotal execution time: %s\n", totalTime.Round(time.Millisecond))
