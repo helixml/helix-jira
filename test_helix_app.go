@@ -13,6 +13,9 @@ import (
 )
 
 type HelixYaml struct {
+	Assistants []struct {
+		Model string `yaml:"model"`
+	} `yaml:"assistants"`
 	Tests []struct {
 		Name  string `yaml:"name"`
 		Steps []struct {
@@ -48,8 +51,10 @@ type TestResult struct {
 	Result         string        `json:"result"`
 	Reason         string        `json:"reason"`
 	SessionID      string        `json:"session_id"`
+	Model          string        `json:"model"`
 	InferenceTime  time.Duration `json:"inference_time"`
 	EvaluationTime time.Duration `json:"evaluation_time"`
+	HelixYaml      string        `json:"helix_yaml"`
 }
 
 type ChatResponse struct {
@@ -74,6 +79,8 @@ func main() {
 		fmt.Printf("Error reading helix.yaml: %v\n", err)
 		return
 	}
+
+	helixYamlContent := string(yamlFile)
 
 	var helixYaml HelixYaml
 	err = yaml.Unmarshal(yamlFile, &helixYaml)
@@ -242,11 +249,13 @@ func main() {
 				Prompt:         step.Prompt,
 				Response:       responseContent,
 				Expected:       step.ExpectedOutput,
-				Result:         evalContent[:4], // Assuming PASS or FAIL
-				Reason:         evalContent[5:], // Explanation after PASS or FAIL
-				SessionID:      chatResp.ID,     // Use the ID field for SessionID
+				Result:         evalContent[:4],
+				Reason:         evalContent[5:],
+				SessionID:      chatResp.ID,
+				Model:          helixYaml.Assistants[0].Model,
 				InferenceTime:  inferenceTime,
 				EvaluationTime: evaluationTime,
+				HelixYaml:      helixYamlContent,
 			}
 
 			results = append(results, result)
@@ -257,15 +266,16 @@ func main() {
 
 	// Display results in a table with link and timing information
 	fmt.Println("Test Results:")
-	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
-	fmt.Printf("%-20s | %-10s | %-10s | %-15s | %-15s | %s\n", "Test Name", "Result", "Session ID", "Inference Time", "Evaluation Time", "Link")
-	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
+	fmt.Println("-----------------------------------------------------------------------------------------------------------------------------------------")
+	fmt.Printf("%-20s | %-10s | %-10s | %-25s | %-15s | %-15s | %s\n", "Test Name", "Result", "Session ID", "Model", "Inference Time", "Evaluation Time", "Link")
+	fmt.Println("-----------------------------------------------------------------------------------------------------------------------------------------")
 	for _, result := range results {
 		link := fmt.Sprintf("https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions=%s", result.SessionID)
-		fmt.Printf("%-20s | %-10s | %-10s | %-15s | %-15s | %s\n",
+		fmt.Printf("%-20s | %-10s | %-10s | %-25s | %-15s | %-15s | %s\n",
 			result.TestName,
 			result.Result,
 			result.SessionID,
+			result.Model,
 			result.InferenceTime.Round(time.Millisecond),
 			result.EvaluationTime.Round(time.Millisecond),
 			link)

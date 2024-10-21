@@ -28,7 +28,6 @@ if [ -z "${HELIX_API_KEY:-}" ]; then
     echo "Error: HELIX_API_KEY is not set. Check your helix account page"
     exit 1
 fi
-
 # Create AUTH_STRING
 AUTH_STRING=$(echo -n "${JIRA_API_EMAIL}:${JIRA_API_KEY}" | base64 -w 0)
 export AUTH_STRING
@@ -56,4 +55,4 @@ ID=$(echo "$RESP" | grep app_)
 echo "Deployment completed to $HELIX_URL/new?app_id=$ID"
 
 export HELIX_APP_ID=$ID
-go run test_helix_app.go
+go run .

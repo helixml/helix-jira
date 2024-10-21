@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ type ResultsData struct {
 	TotalExecutionTime   string       `json:"total_execution_time"`
 	LatestResultsFile    string
 	AvailableResultFiles []string
+	HelixYaml            string `json:"helix_yaml"`
 }
 
 const htmlTemplate = `
@@ -36,6 +38,7 @@ const htmlTemplate = `
         #iframe-container iframe { width: 100%; height: calc(100% - 10px); border: none; }
         #close-iframe { position: absolute; top: 10px; right: 10px; cursor: pointer; }
         #resize-handle { width: 100%; height: 10px; background: #f0f0f0; cursor: ns-resize; border-top: 1px solid #ccc; }
+        #view-helix-yaml { margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -50,11 +53,13 @@ const htmlTemplate = `
                 {{end}}
             </select>
         </form>
+        <button id="view-helix-yaml" onclick="viewHelixYaml()">View helix.yaml</button>
         <table>
             <tr>
                 <th>Test Name</th>
                 <th>Result</th>
                 <th>Session ID</th>
+                <th>Model</th>
                 <th>Inference Time</th>
                 <th>Evaluation Time</th>
                 <th>Session Link</th>
@@ -65,6 +70,7 @@ const htmlTemplate = `
                 <td>{{.TestName}}</td>
                 <td>{{.Result}}</td>
                 <td>{{.SessionID}}</td>
+                <td>{{.Model}}</td>
                 <td>{{.InferenceTime}}</td>
                 <td>{{.EvaluationTime}}</td>
                 <td><a href="#" onclick="openDashboard('https://app.tryhelix.ai/session/{{.SessionID}}'); return false;">Session</a></td>
@@ -109,15 +115,27 @@ const htmlTemplate = `
             isResizing = false;
             document.removeEventListener('mousemove', resize);
         }
+
+        function viewHelixYaml() {
+            const helixYaml = {{.HelixYaml}};
+            const blob = new Blob([helixYaml], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            openDashboard(url);
+        }
     </script>
 </body>
 </html>
 `
 
 func RunResultsServer() {
+	fmt.Println("Starting results server...")
+	startServer()
+}
+
+func startServer() {
 	http.HandleFunc("/", handleResults)
 	fmt.Println("Server is running on http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func handleResults(w http.ResponseWriter, r *http.Request) {
@@ -156,6 +174,10 @@ func loadResultsData(filename string) (ResultsData, error) {
 	err = json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return data, err
+	}
+
+	if len(data.Tests) > 0 {
+		data.HelixYaml = data.Tests[0].HelixYaml
 	}
 
 	data.LatestResultsFile = filename
