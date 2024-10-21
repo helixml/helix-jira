@@ -160,7 +160,8 @@ assistants:
 
   # Other assistant properties
   #model: mixtral:instruct
-  model: qwen2.5:7b-instruct-q8_0
+  #model: qwen2.5:7b-instruct-q8_0
+  model: llama3.1:8b-instruct-q8_0
   name: ""
   description: ""
   avatar: ""
