@@ -40,6 +40,25 @@ const htmlTemplate = `
         #close-iframe { position: absolute; top: 10px; right: 10px; cursor: pointer; }
         #resize-handle { width: 100%; height: 10px; background: #f0f0f0; cursor: ns-resize; border-top: 1px solid #ccc; }
         #view-helix-yaml { margin-bottom: 10px; }
+        .truncate { 
+            max-width: 200px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            position: relative;
+            cursor: pointer;
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 5px;
+            z-index: 1000;
+            max-width: 300px;
+            word-wrap: break-word;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
@@ -59,6 +78,7 @@ const htmlTemplate = `
             <tr>
                 <th>Test Name</th>
                 <th>Result</th>
+                <th>Reason</th>
                 <th>Session ID</th>
                 <th>Model</th>
                 <th>Inference Time</th>
@@ -70,6 +90,7 @@ const htmlTemplate = `
             <tr class="{{if eq .Result "PASS"}}pass{{else}}fail{{end}}">
                 <td>{{.TestName}}</td>
                 <td>{{.Result}}</td>
+                <td class="truncate" data-full-text="{{.Reason}}">{{truncate .Reason 50}}</td>
                 <td>{{.SessionID}}</td>
                 <td>{{.Model}}</td>
                 <td>{{.InferenceTime}}</td>
@@ -85,6 +106,7 @@ const htmlTemplate = `
         <div id="close-iframe" onclick="closeDashboard()">Close</div>
         <iframe id="dashboard-iframe" src=""></iframe>
     </div>
+    <div id="tooltip" class="tooltip"></div>
     <script>
         function openDashboard(url) {
             document.getElementById('dashboard-iframe').src = url;
@@ -123,6 +145,20 @@ const htmlTemplate = `
             const url = URL.createObjectURL(blob);
             openDashboard(url);
         }
+
+        // Tooltip functionality
+        const tooltip = document.getElementById('tooltip');
+        document.querySelectorAll('.truncate').forEach(el => {
+            el.addEventListener('mouseover', function(e) {
+                tooltip.textContent = this.getAttribute('data-full-text');
+                tooltip.style.display = 'block';
+                tooltip.style.left = e.pageX + 'px';
+                tooltip.style.top = e.pageY + 'px';
+            });
+            el.addEventListener('mouseout', function() {
+                tooltip.style.display = 'none';
+            });
+        });
     </script>
 </body>
 </html>
@@ -151,7 +187,11 @@ func handleResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl, err := template.New("results").Parse(htmlTemplate)
+	funcMap := template.FuncMap{
+		"truncate": truncate,
+	}
+
+	tmpl, err := template.New("results").Funcs(funcMap).Parse(htmlTemplate)
 	if err != nil {
 		http.Error(w, "Error parsing template", http.StatusInternalServerError)
 		return
@@ -205,4 +245,11 @@ func getAvailableResultFiles() []string {
 
 	sort.Sort(sort.Reverse(sort.StringSlice(files)))
 	return files
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }

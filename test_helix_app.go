@@ -206,7 +206,7 @@ func main() {
 				// Evaluate response using another LLM call
 				evalReq := ChatRequest{
 					Model:  "llama3.1:8b-instruct-q8_0",
-					System: "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation on the next line. Don't be too strict, just ensure the basics are correct.",
+					System: "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation on the next line.",
 					Messages: []Message{
 						{
 							Role: "user",

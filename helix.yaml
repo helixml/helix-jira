@@ -202,4 +202,8 @@ tests:
   steps:
     - prompt: what issues are assigned to Bob the Builder?
       expected_output: No issues found.
+- name: Write code
+  steps:
+    - prompt: write some code for issue DS-9
+      expected_output: A code snippet that fixes or implements the tic-tac-toe game.
 
