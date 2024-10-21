@@ -54,3 +54,6 @@ fi
 ID=$(echo "$RESP" | grep app_)
 
 echo "Deployment completed to $HELIX_URL/new?app_id=$ID"
+
+export HELIX_APP_ID=$ID
+go run test_helix_app.go

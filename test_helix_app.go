@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -14,10 +15,10 @@ import (
 
 type HelixYaml struct {
 	Tests []struct {
-		Name   string `yaml:"name"`
-		Steps  []struct {
-			Prompt          string `yaml:"prompt"`
-			ExpectedOutput  string `yaml:"expected_output"`
+		Name  string `yaml:"name"`
+		Steps []struct {
+			Prompt         string `yaml:"prompt"`
+			ExpectedOutput string `yaml:"expected_output"`
 		} `yaml:"steps"`
 	} `yaml:"tests"`
 }
@@ -41,12 +42,22 @@ type Content struct {
 }
 
 type TestResult struct {
-	TestName string `json:"test_name"`
-	Prompt   string `json:"prompt"`
-	Response string `json:"response"`
-	Expected string `json:"expected"`
-	Result   string `json:"result"`
-	Reason   string `json:"reason"`
+	TestName  string `json:"test_name"`
+	Prompt    string `json:"prompt"`
+	Response  string `json:"response"`
+	Expected  string `json:"expected"`
+	Result    string `json:"result"`
+	Reason    string `json:"reason"`
+	SessionID string `json:"session_id"`
+}
+
+type ChatResponse struct {
+	ID      string `json:"id"`
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
 }
 
 func main() {
@@ -80,14 +91,18 @@ func main() {
 
 	var results []TestResult
 
+	// Get HELIX_URL from environment variable
+	helixURL := os.Getenv("HELIX_URL")
+	if helixURL == "" {
+		fmt.Println("Error: HELIX_URL environment variable not set")
+		return
+	}
+
 	// Iterate over tests
 	for _, test := range helixYaml.Tests {
 		for _, step := range test.Steps {
-			// Send API request
+			// Send test API request
 			chatReq := ChatRequest{
-				Model:     "llama3.1:8b-instruct-q8_0",
-				SessionID: "",
-				System:    "you are an intelligent assistant that helps with JIRA issues",
 				Messages: []Message{
 					{
 						Role: "user",
@@ -106,7 +121,7 @@ func main() {
 				continue
 			}
 
-			req, err := http.NewRequest("POST", "https://app.tryhelix.ai/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
+			req, err := http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
 			if err != nil {
 				fmt.Printf("Error creating request: %v\n", err)
 				continue
@@ -123,23 +138,38 @@ func main() {
 			}
 			defer resp.Body.Close()
 
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				fmt.Printf("Error reading response: %v\n", err)
 				continue
 			}
 
+			// Parse the response
+			var chatResp ChatResponse
+			err = json.Unmarshal(body, &chatResp)
+			if err != nil {
+				fmt.Printf("Error parsing response JSON: %v\n", err)
+				continue
+			}
+
+			if len(chatResp.Choices) == 0 {
+				fmt.Println("Error: No choices in the response")
+				continue
+			}
+
+			responseContent := chatResp.Choices[0].Message.Content
+			fmt.Printf("Chat response content: %s\n", responseContent)
+
 			// Evaluate response using another LLM call
 			evalReq := ChatRequest{
-				Model:     "llama3.1:8b-instruct-q8_0",
-				SessionID: "",
-				System:    "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation.",
+				Model:  "llama3.1:8b-instruct-q8_0",
+				System: "You are an AI assistant tasked with evaluating test results. Output only PASS or FAIL followed by a brief explanation on the next line.",
 				Messages: []Message{
 					{
 						Role: "user",
 						Content: Content{
 							ContentType: "text",
-							Parts:       []string{fmt.Sprintf("Does this response:\n%s\nmatch the expected output:\n%s", string(body), step.ExpectedOutput)},
+							Parts:       []string{fmt.Sprintf("Does this response:\n\n%s\n\nsatisfy the expected output:\n\n%s", responseContent, step.ExpectedOutput)},
 						},
 					},
 				},
@@ -151,7 +181,7 @@ func main() {
 				continue
 			}
 
-			req, err = http.NewRequest("POST", "https://app.tryhelix.ai/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
+			req, err = http.NewRequest("POST", helixURL+"/api/v1/sessions/chat", bytes.NewBuffer(jsonData))
 			if err != nil {
 				fmt.Printf("Error creating evaluation request: %v\n", err)
 				continue
@@ -167,32 +197,50 @@ func main() {
 			}
 			defer resp.Body.Close()
 
-			evalBody, err := ioutil.ReadAll(resp.Body)
+			evalBody, err := io.ReadAll(resp.Body)
 			if err != nil {
 				fmt.Printf("Error reading evaluation response: %v\n", err)
 				continue
 			}
 
+			// Parse the evaluation response
+			var evalResp ChatResponse
+			err = json.Unmarshal(evalBody, &evalResp)
+			if err != nil {
+				fmt.Printf("Error parsing evaluation response JSON: %v\n", err)
+				continue
+			}
+
+			if len(evalResp.Choices) == 0 {
+				fmt.Println("Error: No choices in the evaluation response")
+				continue
+			}
+
+			evalContent := evalResp.Choices[0].Message.Content
+			fmt.Printf("Evaluation response content: %s\n", evalContent)
+
 			result := TestResult{
-				TestName: test.Name,
-				Prompt:   step.Prompt,
-				Response: string(body),
-				Expected: step.ExpectedOutput,
-				Result:   string(evalBody[:4]), // Assuming PASS or FAIL
-				Reason:   string(evalBody[5:]), // Explanation after PASS or FAIL
+				TestName:  test.Name,
+				Prompt:    step.Prompt,
+				Response:  responseContent,
+				Expected:  step.ExpectedOutput,
+				Result:    evalContent[:4], // Assuming PASS or FAIL
+				Reason:    evalContent[5:], // Explanation after PASS or FAIL
+				SessionID: chatResp.ID,     // Use the ID field for SessionID
 			}
 
 			results = append(results, result)
 		}
 	}
 
-	// Display results in a table
+	// Display results in a table with link
 	fmt.Println("Test Results:")
-	fmt.Println("----------------------------------------------------")
-	fmt.Printf("%-20s | %-10s | %s\n", "Test Name", "Result", "Reason")
-	fmt.Println("----------------------------------------------------")
+	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
+	fmt.Printf("%-20s | %-10s | %-10s | %s\n", "Test Name", "Result", "Session ID", "Link")
+	fmt.Println("--------------------------------------------------------------------------------------------------------------------")
 	for _, result := range results {
-		fmt.Printf("%-20s | %-10s | %s\n", result.TestName, result.Result, result.Reason)
+		link := fmt.Sprintf("https://app.tryhelix.ai/dashboard?tab=llm_calls&filter_sessions=%s", result.SessionID)
+		fmt.Printf("%-20s | %-10s | %-10s | %s\n", result.TestName, result.Result, result.SessionID, link)
 	}
 
 	// Write results to JSON file
@@ -204,7 +252,7 @@ func main() {
 		return
 	}
 
-	err = ioutil.WriteFile(filename, jsonResults, 0644)
+	err = os.WriteFile(filename, jsonResults, 0644)
 	if err != nil {
 		fmt.Printf("Error writing results to file: %v\n", err)
 		return
