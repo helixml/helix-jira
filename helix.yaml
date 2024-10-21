@@ -186,12 +186,12 @@ triggers: []
 
 # TODO: pin down API responses
 tests:
-- name: Test JIRA issue search with lowercase w
-  steps:
-    - prompt: what issues are there?
-      expected_output: A summary of 8 tasks.
 - name: Test JIRA issue search
   steps:
-    - prompt: What issues are there?
-      expected_output: A summary of 8 tasks.
+    - prompt: what issues are there?
+      expected_output: A list of 8 issues with brief summaries and/or details.
+- name: Assigned to me
+  steps:
+    - prompt: what issues are assigned to me?
+      expected_output: A summary of only the tasks assigned to Luke Marsden.
 
