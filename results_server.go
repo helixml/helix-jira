@@ -32,7 +32,8 @@ const htmlTemplate = `
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr.pass { background-color: #e6ffe6; }
+        tr.fail { background-color: #ffe6e6; }
         h1 { color: #333; }
         #iframe-container { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 70%; border: none; }
         #iframe-container iframe { width: 100%; height: calc(100% - 10px); border: none; }
@@ -66,7 +67,7 @@ const htmlTemplate = `
                 <th>Debug Link</th>
             </tr>
             {{range .Tests}}
-            <tr>
+            <tr class="{{if eq .Result "PASS"}}pass{{else}}fail{{end}}">
                 <td>{{.TestName}}</td>
                 <td>{{.Result}}</td>
                 <td>{{.SessionID}}</td>

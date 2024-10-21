@@ -198,4 +198,8 @@ tests:
   steps:
     - prompt: what issues are assigned to Phil Winder?
       expected_output: A summary of only the tasks assigned to Phil Winder.
+- name: No issues assigned to Bob the Builder
+  steps:
+    - prompt: what issues are assigned to Bob the Builder?
+      expected_output: No issues found.
 
