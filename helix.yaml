@@ -188,32 +188,33 @@ assistants:
   gptscripts: []
   zapier: []
 
-triggers: []
+  # Tests for this assistant
+  tests:
+  - name: Test JIRA issue search
+    steps:
+      - prompt: what issues are there?
+        expected_output: A list of 9 issues with brief summaries and/or details.
+  - name: Assigned to me
+    steps:
+      - prompt: what issues are assigned to me?
+        expected_output: A summary of only the tasks assigned to Luke.
+  - name: Assigned to Phil Winder
+    steps:
+      - prompt: what issues are assigned to Phil Winder?
+        expected_output: A summary of only the tasks assigned to Phil Winder.
+  - name: No issues assigned to Bob the Builder
+    steps:
+      - prompt: what issues are assigned to Bob the Builder?
+        expected_output: No issues found.
+  - name: Write code
+    steps:
+      - prompt: write some code for issue DS-9
+        expected_output: A code snippet that fixes or implements the tic-tac-toe game.
+  - name: Overdue issues
+    steps:
+      - prompt: show me overdue issues
+        expected_output: A list of issues that are overdue. There should be exactly one.
 
-# TODO: pin down API responses
-tests:
-- name: Test JIRA issue search
-  steps:
-    - prompt: what issues are there?
-      expected_output: A list of 9 issues with brief summaries and/or details.
-- name: Assigned to me
-  steps:
-    - prompt: what issues are assigned to me?
-      expected_output: A summary of only the tasks assigned to Luke.
-- name: Assigned to Phil Winder
-  steps:
-    - prompt: what issues are assigned to Phil Winder?
-      expected_output: A summary of only the tasks assigned to Phil Winder.
-- name: No issues assigned to Bob the Builder
-  steps:
-    - prompt: what issues are assigned to Bob the Builder?
-      expected_output: No issues found.
-- name: Write code
-  steps:
-    - prompt: write some code for issue DS-9
-      expected_output: A code snippet that fixes or implements the tic-tac-toe game.
-- name: Overdue issues
-  steps:
-    - prompt: show me overdue issues
-      expected_output: A list of issues that are overdue. There should be exactly one.
+
+triggers: []
 
