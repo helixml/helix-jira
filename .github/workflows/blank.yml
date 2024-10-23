@@ -1,0 +1,17 @@
+name: CI for GenAI
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install helix CLI
+        run: curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli
+      - name: Test the helix app
+        run: helix test
