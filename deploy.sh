@@ -43,16 +43,4 @@ helix secret delete --name AUTH_STRING || true
 helix secret create --name JIRA_HOSTNAME --value $JIRA_HOSTNAME
 helix secret create --name AUTH_STRING --value $AUTH_STRING
 
-# Run helix apply with the processed file
-RESP=$(helix apply -f helix.yaml)
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to deploy the app: $RESP"
-    exit 1
-fi
-
-ID=$(echo "$RESP" | grep app_)
-
-echo "Deployment completed to $HELIX_URL/new?app_id=$ID"
-
-export HELIX_APP_ID=$ID
-go run .
+helix test -f helix.yaml
