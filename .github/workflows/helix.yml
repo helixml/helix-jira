@@ -27,7 +27,7 @@ jobs:
         env:
           HELIX_URL: ${{ secrets.HELIX_URL }}
           HELIX_API_KEY: ${{ secrets.HELIX_API_KEY }}
-        run: helix apply -f
+        run: helix apply -f helix.yaml
 
   test-and-comment:
     runs-on: ubuntu-latest
