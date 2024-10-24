@@ -11,7 +11,26 @@ env:
   HELIX_API_KEY: ${{ secrets.HELIX_API_KEY }}
 
 jobs:
-  test-and-apply:
+  test-and-comment:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install helix CLI
+        run: curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
+
+      - name: Test the helix app
+        run: helix test
+
+      - name: PR comment with file
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: summary_latest.md
+
+  deploy:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
@@ -26,20 +45,3 @@ jobs:
       - name: Apply changes
         if: success()
         run: helix apply -f helix.yaml
-
-  test-and-comment:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install helix CLI
-        run: curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
-
-      - name: Test the helix app
-        run: helix test
-
-      - name: PR comment with file
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          filePath: summary_latest.md

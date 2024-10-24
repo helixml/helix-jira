@@ -1,0 +1,48 @@
+stages:
+  - test
+  - apply
+
+variables:
+  HELIX_URL: ${HELIX_URL}
+  HELIX_API_KEY: ${HELIX_API_KEY}
+
+test_job:
+  stage: test
+  image: ubuntu:latest
+  script:
+    - curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
+    - helix test
+  artifacts:
+    paths:
+      - summary_latest.md
+    when: always
+
+apply_job:
+  stage: apply
+  image: ubuntu:latest
+  script:
+    - curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
+    - helix apply -f helix.yaml
+  only:
+    - main
+    - pushes
+    - web
+
+comment_job:
+  stage: apply
+  image: ubuntu:latest
+  script:
+    - echo "Commenting on merge request with test results"
+    - |
+      if [ -f summary_latest.md ]; then
+        comment=$(cat summary_latest.md)
+        curl --request POST \
+          --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data "{\"body\": \"${comment}\"}" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes"
+      else
+        echo "summary_latest.md not found"
+      fi
+  only:
+    - merge_requests
