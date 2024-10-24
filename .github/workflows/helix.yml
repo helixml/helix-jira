@@ -42,4 +42,4 @@ jobs:
       - name: PR comment with file
         uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: summary_latest.md
+          file_path: summary_latest.md
