@@ -10,6 +10,7 @@ test_job:
   stage: test
   image: ubuntu:latest
   script:
+    - apt-get update && apt-get install -y curl
     - curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
     - helix test
   artifacts:
@@ -21,6 +22,7 @@ apply_job:
   stage: apply
   image: ubuntu:latest
   script:
+    - apt-get update && apt-get install -y curl
     - curl -sL -O https://get.helix.ml/install.sh && bash install.sh --cli -y
     - helix apply -f helix.yaml
   only:
