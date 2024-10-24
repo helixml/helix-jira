@@ -157,13 +157,11 @@ assistants:
 
 
     response_success_template: |
-      Present the key information in a concise manner and perform any actions requested by the user.
+      Present the key information in a concise manner.
       Include relevant details, references, and links if present. Format the summary in Markdown for clarity and readability where appropriate, but don't mention formatting in your response unless it's relevant to the user's query.
       Make sure to NEVER mention technical terms like "APIs, JSON, Request, etc..." and use first person pronoun (say it as if you performed the action)
 
       Issues and tasks mean the same thing.
-
-      IMPORTANT: If the user asks you to write code, you MUST write code. Start by describing the task described in the issue, and then write the code to perform the task.
 
     response_error_template: |
       As an AI chat assistant, your job is to help the user understand and resolve API error messages.
@@ -206,10 +204,6 @@ assistants:
     steps:
       - prompt: what issues are assigned to Bob the Builder?
         expected_output: No issues found.
-  - name: Write code
-    steps:
-      - prompt: write some code for issue DS-9
-        expected_output: A code snippet that fixes or implements the tic-tac-toe game.
   - name: Overdue issues
     steps:
       - prompt: show me overdue issues
