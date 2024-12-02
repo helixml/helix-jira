@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  HELIX_URL: ${{ secrets.HELIX_URL }}
+  HELIX_URL: ${{ vars.HELIX_URL }}
   HELIX_API_KEY: ${{ secrets.HELIX_API_KEY }}
 
 jobs:
